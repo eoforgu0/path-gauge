@@ -4,9 +4,12 @@ import { Layer, Stage } from "react-konva";
 import { ImageDropZone } from "@/components/ImageLoader/ImageDropZone";
 import { useCanvasStore } from "@/stores/useCanvasStore";
 import { usePathStore } from "@/stores/usePathStore";
+import { snapToNode } from "@/utils/snap";
 import { BackgroundImage } from "./BackgroundImage";
 import { PathRenderer } from "./PathRenderer";
 import { PreviewLine } from "./PreviewLine";
+import { SnapGhost } from "./SnapGhost";
+import { SnapGuideLines } from "./SnapGuideLines";
 
 const ZOOM_FACTOR = 1.1;
 const FIT_MARGIN = 20;
@@ -31,6 +34,8 @@ export function MapCanvas() {
   const fitRequestCounter = useCanvasStore((s) => s.fitRequestCounter);
   const drawMode = useCanvasStore((s) => s.drawMode);
   const setDrawMode = useCanvasStore((s) => s.setDrawMode);
+  const shiftPressed = useCanvasStore((s) => s.shiftPressed);
+  const setSnapState = useCanvasStore((s) => s.setSnapState);
 
   const paths = usePathStore((s) => s.paths);
   const activePathId = usePathStore((s) => s.activePathId);
@@ -135,6 +140,25 @@ export function MapCanvas() {
         const coords = getImageCoords(stage, position, scale);
         if (coords) {
           setCursorPosition({ x: Math.round(coords.x), y: Math.round(coords.y) });
+
+          // Snap preview during drawing
+          if (drawMode === "drawing" && shiftPressed && activePathId) {
+            const activePath = paths.find((p) => p.id === activePathId);
+            if (activePath && activePath.nodes.length > 0) {
+              // biome-ignore lint/style/noNonNullAssertion: length checked above
+              const lastNode = activePath.nodes[activePath.nodes.length - 1]!;
+              const result = snapToNode(coords, lastNode, scale);
+              setSnapState({
+                active: result.guides.length > 0,
+                snappedPoint: result.guides.length > 0 ? result.point : null,
+                guideLines: result.guides,
+              });
+            } else {
+              setSnapState({ active: false, snappedPoint: null, guideLines: [] });
+            }
+          } else if (!shiftPressed) {
+            setSnapState({ active: false, snappedPoint: null, guideLines: [] });
+          }
         }
       }
 
@@ -145,7 +169,7 @@ export function MapCanvas() {
         });
       }
     },
-    [position, scale, setPosition, setCursorPosition],
+    [position, scale, setPosition, setCursorPosition, drawMode, shiftPressed, activePathId, paths, setSnapState],
   );
 
   const handleMouseUp = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -157,7 +181,8 @@ export function MapCanvas() {
   const handleMouseLeave = useCallback(() => {
     isPanning.current = false;
     setCursorPosition(null);
-  }, [setCursorPosition]);
+    setSnapState({ active: false, snappedPoint: null, guideLines: [] });
+  }, [setCursorPosition, setSnapState]);
 
   // Click to add node in drawing mode
   const handleClick = useCallback(
@@ -171,11 +196,23 @@ export function MapCanvas() {
       const stage = stageRef.current;
       if (!stage) return;
       const coords = getImageCoords(stage, position, scale);
-      if (coords) {
-        addNode(activePathId, coords);
+      if (!coords) return;
+
+      // Apply snap if shift is pressed and there's a previous node
+      if (shiftPressed) {
+        const activePath = paths.find((p) => p.id === activePathId);
+        if (activePath && activePath.nodes.length > 0) {
+          // biome-ignore lint/style/noNonNullAssertion: length checked above
+          const lastNode = activePath.nodes[activePath.nodes.length - 1]!;
+          const result = snapToNode(coords, lastNode, scale);
+          addNode(activePathId, result.point);
+          return;
+        }
       }
+
+      addNode(activePathId, coords);
     },
-    [drawMode, activePathId, position, scale, addNode],
+    [drawMode, activePathId, position, scale, addNode, shiftPressed, paths],
   );
 
   // Double-click to finish drawing
@@ -183,7 +220,8 @@ export function MapCanvas() {
     if (drawMode !== "drawing") return;
     skipNextClick.current = true;
     setDrawMode("idle");
-  }, [drawMode, setDrawMode]);
+    setSnapState({ active: false, snappedPoint: null, guideLines: [] });
+  }, [drawMode, setDrawMode, setSnapState]);
 
   if (!imageUrl) {
     return <ImageDropZone />;
@@ -221,6 +259,8 @@ export function MapCanvas() {
               <PathRenderer key={path.id} path={path} />
             ))}
             <PreviewLine />
+            <SnapGuideLines />
+            <SnapGhost />
           </Layer>
         </Stage>
       )}
