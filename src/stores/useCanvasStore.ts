@@ -20,6 +20,8 @@ interface CanvasState {
   setScale: (scale: number) => void;
   setPosition: (position: Point) => void;
   resetView: () => void;
+  fitRequestCounter: number;
+  requestFitToScreen: () => void;
 
   setDrawMode: (mode: DrawMode) => void;
   setCursorPosition: (point: Point | null) => void;
@@ -63,6 +65,11 @@ export const useCanvasStore = create<CanvasState>()((set) => ({
 
   resetView: () => {
     set({ scale: 1.0, position: { x: 0, y: 0 } });
+  },
+
+  fitRequestCounter: 0,
+  requestFitToScreen: () => {
+    set((state) => ({ fitRequestCounter: state.fitRequestCounter + 1 }));
   },
 
   setDrawMode: (mode) => {
