@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@theme {
+  /* パスのデフォルトカラーパレット */
+  --color-path-1: #ef4444;
+  --color-path-2: #3b82f6;
+  --color-path-3: #22c55e;
+  --color-path-4: #f59e0b;
+  --color-path-5: #8b5cf6;
+  --color-path-6: #ec4899;
+  --color-path-7: #06b6d4;
+  --color-path-8: #84cc16;
+}
