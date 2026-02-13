@@ -3,10 +3,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Layer, Stage } from "react-konva";
 import { ImageDropZone } from "@/components/ImageLoader/ImageDropZone";
 import { useCanvasStore } from "@/stores/useCanvasStore";
+import { usePathStore } from "@/stores/usePathStore";
 import { BackgroundImage } from "./BackgroundImage";
+import { PathRenderer } from "./PathRenderer";
+import { PreviewLine } from "./PreviewLine";
 
 const ZOOM_FACTOR = 1.1;
 const FIT_MARGIN = 20;
+
+function getImageCoords(stage: Konva.Stage, position: { x: number; y: number }, scale: number) {
+  const pointer = stage.getPointerPosition();
+  if (!pointer) return null;
+  return {
+    x: (pointer.x - position.x) / scale,
+    y: (pointer.y - position.y) / scale,
+  };
+}
 
 export function MapCanvas() {
   const imageUrl = useCanvasStore((s) => s.imageUrl);
@@ -17,12 +29,19 @@ export function MapCanvas() {
   const setPosition = useCanvasStore((s) => s.setPosition);
   const setCursorPosition = useCanvasStore((s) => s.setCursorPosition);
   const fitRequestCounter = useCanvasStore((s) => s.fitRequestCounter);
+  const drawMode = useCanvasStore((s) => s.drawMode);
+  const setDrawMode = useCanvasStore((s) => s.setDrawMode);
+
+  const paths = usePathStore((s) => s.paths);
+  const activePathId = usePathStore((s) => s.activePathId);
+  const addNode = usePathStore((s) => s.addNode);
 
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const isPanning = useRef(false);
   const panStart = useRef({ x: 0, y: 0 });
+  const skipNextClick = useRef(false);
 
   // Track container size via callback ref
   useEffect(() => {
@@ -111,14 +130,11 @@ export function MapCanvas() {
 
   const handleMouseMove = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
-      // Update cursor position for status bar
       const stage = stageRef.current;
       if (stage) {
-        const pointer = stage.getPointerPosition();
-        if (pointer) {
-          const imageX = (pointer.x - position.x) / scale;
-          const imageY = (pointer.y - position.y) / scale;
-          setCursorPosition({ x: Math.round(imageX), y: Math.round(imageY) });
+        const coords = getImageCoords(stage, position, scale);
+        if (coords) {
+          setCursorPosition({ x: Math.round(coords.x), y: Math.round(coords.y) });
         }
       }
 
@@ -143,15 +159,43 @@ export function MapCanvas() {
     setCursorPosition(null);
   }, [setCursorPosition]);
 
+  // Click to add node in drawing mode
+  const handleClick = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (e.evt.button !== 0 || drawMode !== "drawing" || !activePathId) return;
+      if (skipNextClick.current) {
+        skipNextClick.current = false;
+        return;
+      }
+
+      const stage = stageRef.current;
+      if (!stage) return;
+      const coords = getImageCoords(stage, position, scale);
+      if (coords) {
+        addNode(activePathId, coords);
+      }
+    },
+    [drawMode, activePathId, position, scale, addNode],
+  );
+
+  // Double-click to finish drawing
+  const handleDblClick = useCallback(() => {
+    if (drawMode !== "drawing") return;
+    skipNextClick.current = true;
+    setDrawMode("idle");
+  }, [drawMode, setDrawMode]);
+
   if (!imageUrl) {
     return <ImageDropZone />;
   }
+
+  const cursorStyle = isPanning.current ? "move" : drawMode === "drawing" ? "crosshair" : "default";
 
   return (
     <div
       ref={setContainerEl}
       className="flex-1 overflow-hidden bg-canvas-bg"
-      style={{ cursor: isPanning.current ? "move" : "default" }}
+      style={{ cursor: cursorStyle }}
       onContextMenu={(e) => e.preventDefault()}
     >
       {containerSize.width > 0 && (
@@ -168,9 +212,15 @@ export function MapCanvas() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
+          onClick={handleClick}
+          onDblClick={handleDblClick}
         >
           <Layer>
             <BackgroundImage />
+            {paths.map((path) => (
+              <PathRenderer key={path.id} path={path} />
+            ))}
+            <PreviewLine />
           </Layer>
         </Stage>
       )}
