@@ -12,5 +12,6 @@ export const PATH_COLORS = [
 
 /** インデックスからパスの色を返す（配列長で循環） */
 export function getPathColor(index: number): string {
+  // biome-ignore lint/style/noNonNullAssertion: modulo guarantees valid index
   return PATH_COLORS[index % PATH_COLORS.length]!;
 }

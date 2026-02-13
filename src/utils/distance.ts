@@ -9,8 +9,9 @@ export function pixelDistance(a: Point, b: Point): number {
 export function calcPathMetrics(path: Path): PathMetrics {
   const edges: EdgeInfo[] = [];
   for (let i = 0; i < path.nodes.length - 1; i++) {
-    const from = path.nodes[i]!;
-    const to = path.nodes[i + 1]!;
+    const from = path.nodes[i];
+    const to = path.nodes[i + 1];
+    if (!from || !to) continue;
     const dist = pixelDistance(from, to);
     edges.push({
       fromNode: from,

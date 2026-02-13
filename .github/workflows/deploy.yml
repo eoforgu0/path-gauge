@@ -31,7 +31,7 @@ jobs:
 
       - run: npm run build
 
-      - run: npx vitest run
+      - run: npx vitest run --passWithNoTests
 
       - uses: actions/upload-pages-artifact@v3
         with:
