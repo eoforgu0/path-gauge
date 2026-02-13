@@ -40,6 +40,7 @@ export function MapCanvas() {
   const paths = usePathStore((s) => s.paths);
   const activePathId = usePathStore((s) => s.activePathId);
   const addNode = usePathStore((s) => s.addNode);
+  const undoLastNode = usePathStore((s) => s.undoLastNode);
 
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -217,11 +218,13 @@ export function MapCanvas() {
 
   // Double-click to finish drawing
   const handleDblClick = useCallback(() => {
-    if (drawMode !== "drawing") return;
+    if (drawMode !== "drawing" || !activePathId) return;
     skipNextClick.current = true;
+    // Undo the duplicate node added by the 2nd click of the double-click
+    undoLastNode(activePathId);
     setDrawMode("idle");
     setSnapState({ active: false, snappedPoint: null, guideLines: [] });
-  }, [drawMode, setDrawMode, setSnapState]);
+  }, [drawMode, activePathId, undoLastNode, setDrawMode, setSnapState]);
 
   if (!imageUrl) {
     return <ImageDropZone />;
