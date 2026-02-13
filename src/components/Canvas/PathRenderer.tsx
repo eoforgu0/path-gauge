@@ -22,11 +22,11 @@ export function PathRenderer({ path }: Props) {
           <Fragment key={node.id}>
             {nextNode && (
               <>
-                <EdgeLine fromNode={node} toNode={nextNode} color={path.color} scale={scale} />
+                <EdgeLine pathId={path.id} fromNode={node} toNode={nextNode} color={path.color} scale={scale} />
                 <EdgeLabel fromNode={node} toNode={nextNode} color={path.color} scale={scale} unitConfig={unitConfig} />
               </>
             )}
-            <NodeCircle node={node} color={path.color} scale={scale} />
+            <NodeCircle pathId={path.id} node={node} color={path.color} scale={scale} />
           </Fragment>
         );
       })}
