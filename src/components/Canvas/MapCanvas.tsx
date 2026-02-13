@@ -18,16 +18,15 @@ export function MapCanvas() {
   const setCursorPosition = useCanvasStore((s) => s.setCursorPosition);
   const fitRequestCounter = useCanvasStore((s) => s.fitRequestCounter);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const isPanning = useRef(false);
   const panStart = useRef({ x: 0, y: 0 });
 
-  // Track container size
+  // Track container size via callback ref
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    if (!containerEl) return;
 
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
@@ -38,9 +37,9 @@ export function MapCanvas() {
         });
       }
     });
-    observer.observe(container);
+    observer.observe(containerEl);
     return () => observer.disconnect();
-  }, []);
+  }, [containerEl]);
 
   // Fit to screen function
   const fitToScreen = useCallback(() => {
@@ -150,7 +149,7 @@ export function MapCanvas() {
 
   return (
     <div
-      ref={containerRef}
+      ref={setContainerEl}
       className="flex-1 overflow-hidden bg-canvas-bg"
       style={{ cursor: isPanning.current ? "move" : "default" }}
       onContextMenu={(e) => e.preventDefault()}
